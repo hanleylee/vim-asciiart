@@ -158,6 +158,11 @@ function! asciiart#WrapBlockWithASCII()
     " redraw
 endfunction
 
+function! asciiart#lookupContainerBox()
+    let corners = g:Ascii_Pyeval('asciiart.loopupContainerBox')
+    return corners
+endfunction
+
 " h_direct: `left`, `right`
 " v_direct: `top`, `bottom`
 " 返回值是行数与列数
