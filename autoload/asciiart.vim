@@ -159,40 +159,35 @@ function! asciiart#WrapBlockWithASCII()
 endfunction
 
 function! asciiart#lookupContainerBox()
-    let corners = g:Ascii_Pyeval('asciiart.loopupContainerBox')
-    return corners
+    let box = g:Asciiart_Pyeval('asciiart.lookupContainerBox()')
+    return box
 endfunction
 
-" h_direct: `left`, `right`
-" v_direct: `top`, `bottom`
-" 返回值是行数与列数
-function! asciiart#findcorner(h_direct, v_direct)
-    " 获取当前行和列号
-    let current_line = line('.')
-    " 顶和底不能重叠, 因此区分 top 还是 bottom
-    let current_col = col('.')
-    let current_col_index = col('.') - 1
-    let target_line = a:v_direct == 'top' ? current_line : current_line + 1
-    " 这个是idx, 从0开始计数
-    let target_col_idx = -1
-
-    " let matches = matchlist(search_content, '+', search_start_col)
-    " let matches = asciiart#utils#matchall(l:line_content, '+')
-    let target_col_idx = asciiart#utils#FindNearestChar(getline('.'), current_col_index, '|', a:h_direct)
-    " echom 'target_col_idx: ' . target_col_idx
-    while target_line > 0 && target_line <= line('$')
-        let l:line_content = getline(target_line)
-        if l:line_content[target_col_idx] == '+'
-            break
-        endif
-
-        let target_line = a:v_direct == 'top' ? target_line - 1 : target_line + 1
-    endwhile
-
-    if target_col_idx == -1
+" corner_type: `topleft`, `topright`, `bottomleft`, `bottomright`
+" return: [line, column]
+function! asciiart#findcorner(corner_type)
+    let box = asciiart#lookupContainerBox()
+    if len(box) != 4
+        echoerr "can't find any match box"
         return []
+    endif
+    " let box_origin = [box[0], box[1]]
+    let box_line_start = box[0]
+    let box_col_start = box[1]
+    let box_width = box[2]
+    let box_height = box[3]
+
+    if a:corner_type == 'topleft'
+        return [box_line_start, box_col_start]
+    elseif a:corner_type == 'bottomleft'
+        return [box_line_start + box_height - 1, box_col_start]
+    elseif a:corner_type == 'topright'
+        return [box_line_start, box_col_start + box_width - 1]
+    elseif a:corner_type == 'bottomright'
+        return [box_line_start + box_height - 1, box_col_start + box_width - 1]
     else
-        return [target_line, target_col_idx + 1]
+        echoerr 'wrong cornertype' . a:corner_type
+        return []
     endif
 
 endfunction
@@ -201,8 +196,8 @@ function! asciiart#boxObject(type) abort
     " normal! $
     " let start_row = searchpos('\s*```', 'bn')[0]
     " let end_row = searchpos('\s*```', 'n')[0]
-    let topleft = asciiart#findcorner('left', 'top')
-    let bottomright = asciiart#findcorner('right', 'bottom')
+    let topleft = asciiart#findcorner('topleft')
+    let bottomright = asciiart#findcorner('bottomright')
     " echom topleft
     " echom bottomright
     if len(topleft) == 0 || len(bottomright) == 0
@@ -232,12 +227,8 @@ function! asciiart#boxObject(type) abort
 endfunction
 
 function! asciiart#boxclear(type)
-    let topleft = asciiart#findcorner('left', 'top')
-    let bottomright = asciiart#findcorner('right', 'bottom')
-    if len(topleft) == 0 || len(bottomright) == 0
-        echoerr "Corner not found!"
-        return
-    endif
+    let topleft = asciiart#findcorner('topleft')
+    let bottomright = asciiart#findcorner('bottomright')
 
     let start_line = topleft[0]
     let start_col = topleft[1]

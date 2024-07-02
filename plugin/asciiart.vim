@@ -9,7 +9,7 @@ if has("python3")
     let g:Asciiart_Pyeval = function("py3eval")
     echom g:Asciiart_Pyeval
 else
-    echoe 'Error: has("python3") == 0'
+    echoerr 'Error: has("python3") == 0'
     finish
 endif
 
