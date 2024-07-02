@@ -5,7 +5,7 @@
 
 function! s:SetCharAtLineCol(line, col, char)
     let l:line_content = getline(a:line)
-    let l:line_length = strlen(l:line_content)
+    let l:line_length = strchars(l:line_content)
 
     " 确保列存在, 否则就用空格填充
     if a:col > l:line_length
@@ -127,7 +127,7 @@ function! asciiart#WrapBlockWithASCII()
     for lnum in range(l:start_line, l:end_line)
         " 获取当前行的内容和长度
         let l:line_content = getline(lnum)
-        let l:line_length = strlen(l:line_content)
+        let l:line_length = strchars(l:line_content)
 
         " 确保列数足够，并填充空格
         if l:start_col > l:line_length
