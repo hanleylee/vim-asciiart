@@ -3,13 +3,13 @@
 " GitHub: https://github.com/hanleylee
 " License:  MIT License
 
-function! s:SetCharAtLineCol(line, col, char)
+function! s:SetCharAtLineCol(line, char_col, char)
     let l:line_content = getline(a:line)
     let l:line_length = strchars(l:line_content)
 
     " 确保列存在, 否则就用空格填充
-    if a:col > l:line_length
-        let l:line_content .= repeat(' ', a:col - l:line_length - 1)
+    if a:char_col > l:line_length
+        let l:line_content .= repeat(' ', a:char_col - l:line_length - 1)
     endif
 
     " 确保行存在
@@ -17,9 +17,36 @@ function! s:SetCharAtLineCol(line, col, char)
         call append(line('$'), '')
     endwhile
 
-    let l:before = strcharpart(l:line_content, 0, a:col - 1)
-    let l:after = strcharpart(l:line_content, a:col)
+    let l:before = strcharpart(l:line_content, 0, a:char_col - 1)
+    let l:after = strcharpart(l:line_content, a:char_col)
     call setline(a:line, l:before . a:char . l:after)
+endfunction
+
+function! s:GetCharAtLineCol(line, char_col)
+    let line_content = getline(a:line)
+    let cur_char = strcharpart(line_content, a:char_col - 1, 1, 0)
+    return cur_char
+endfunction
+
+function! s:VirtcolToCharcol(line, virtcol)
+    " 获取当前行内容
+    let line_content = getline(line)
+    
+    " 初始化变量
+    let charcol = 0
+    let curr_virtcol = 1  " 虚拟列从1开始
+    
+    " 遍历当前行的字符，计算虚拟列
+    for char in split(line_content, '\zs')
+        if curr_virtcol >= a:virtcol
+            break
+        endif
+        let char_width = strdisplaywidth(char)
+        let curr_virtcol += char_width
+        let charcol += 1
+    endfor
+    
+    return charcol
 endfunction
 
 function! s:arrowChar(direct)
@@ -56,58 +83,60 @@ function! s:isCross(cur_char, direct)
 endfunction
 
 function asciiart#arrowmove(direct)
-    let l:cur_col = virtcol('.')   
-    let l:cur_line = line('.')
-    let l:cur_char = getline('.')[l:cur_col - 1]
-    " echom l:cur_char
-    " echom l:arrow_char
-    " echom l:cur_char == l:arrow_char
+    let cur_char_col = charcol('.')   
+    let cur_virt_col = virtcol('.')   
+    let cur_line = line('.')
+    let cur_char = strcharpart(getline('.'), charcol('.') - 1, 1, 0)
 
     " 设置当前位置的符号 {{{
     " echom s:isCross(l:cur_char, a:direct)
 
-    if l:cur_char == '+'
-        let l:cur_fill_char = '+'
-    elseif s:isCross(l:cur_char, a:direct)
+    if cur_char == '+'
+        let cur_fill_char = '+'
+    elseif s:isCross(cur_char, a:direct)
         " echom 111
-        let l:cur_fill_char = '+'
+        let cur_fill_char = '+'
     else
-        let l:cur_fill_char = (a:direct == 'up' || a:direct == 'down') ? '|' : '-'
+        let cur_fill_char = (a:direct == 'up' || a:direct == 'down') ? '|' : '-'
     endif
-    call s:SetCharAtLineCol(l:cur_line, l:cur_col, l:cur_fill_char)
+    call s:SetCharAtLineCol(cur_line, cur_char_col, cur_fill_char)
     " }}}
 
     " 设置下一个位置的符号 {{{
     if a:direct == 'up'
-        let l:next_line = l:cur_line - 1
-        let l:next_col = l:cur_col
+        let next_line = cur_line - 1
+        let next_virt_col = cur_virt_col
     elseif a:direct == 'down'
-        let l:next_line = l:cur_line + 1
-        let l:next_col = l:cur_col
+        let next_line = cur_line + 1
+        let next_virt_col = cur_virt_col
     elseif a:direct == 'left'
-        let l:next_line = l:cur_line
-        let l:next_col = l:cur_col - 1
+        let next_line = cur_line
+        let next_virt_col = cur_virt_col - 1
     elseif a:direct == 'right'
-        let l:next_line = l:cur_line
-        let l:next_col = l:cur_col + 1
+        let next_line = cur_line
+        let next_virt_col = cur_virt_col + 1
     else
         echoerr 'direct error: ' . a:direct
     endif
-    let next_char = getline(l:next_line)[l:next_col - 1]
-    if l:next_char == '+'
-        let l:next_fill_char = '+'
-    elseif s:isCross(l:next_char, a:direct)
-        let l:next_fill_char = '+'
+    " TODO: how to get next charcol 
+    " convert virtcol to charcol
+    " let next_col = virtcol2col(winnr(), next_line, next_virt_col)
+    let next_char_col = s:VirtcolToCharcol(next_line, next_virt_col)
+    let next_char = s:GetCharAtLineCol(next_line, next_char_col)
+    if next_char == '+'
+        let next_fill_char = '+'
+    elseif s:isCross(next_char, a:direct)
+        let next_fill_char = '+'
     else
-        let l:next_fill_char = s:arrowChar(a:direct)
+        let next_fill_char = s:arrowChar(a:direct)
     endif
 
-    call s:SetCharAtLineCol(l:next_line, l:next_col, l:next_fill_char)
+    call s:SetCharAtLineCol(next_line, next_char_col, next_fill_char)
     " }}}
 
     " 设置光标位置
     " call setpos('.', [bufnr('%'), l:next_line, l:next_col])
-    call cursor(l:next_line, l:next_col)
+    call cursor(next_line, next_virt_col)
     " redraw
 endfunction
 
