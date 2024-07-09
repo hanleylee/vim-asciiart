@@ -28,25 +28,13 @@ function! s:GetCharAtLineCol(line, char_col)
     return cur_char
 endfunction
 
-function! s:VirtcolToCharcol(line, virtcol)
-    " 获取当前行内容
-    let line_content = getline(line)
-    
-    " 初始化变量
-    let charcol = 0
-    let curr_virtcol = 1  " 虚拟列从1开始
-    
-    " 遍历当前行的字符，计算虚拟列
-    for char in split(line_content, '\zs')
-        if curr_virtcol >= a:virtcol
-            break
-        endif
-        let char_width = strdisplaywidth(char)
-        let curr_virtcol += char_width
-        let charcol += 1
-    endfor
-    
-    return charcol
+function! s:VirtcolToCharcol(win_id, line, virtcol)
+    let line_content = getline(a:line)
+    " convert virtcol to byte based col
+    let byte_col = virtcol2col(a:win_id, a:line, a:virtcol)
+    " convert byte based col to character index col
+    let char_col = charidx(line_content, byte_col) + 1
+    return char_col
 endfunction
 
 function! s:arrowChar(direct)
@@ -118,10 +106,7 @@ function asciiart#arrowmove(direct)
     else
         echoerr 'direct error: ' . a:direct
     endif
-    " TODO: how to get next charcol 
-    " convert virtcol to charcol
-    " let next_col = virtcol2col(winnr(), next_line, next_virt_col)
-    let next_char_col = s:VirtcolToCharcol(next_line, next_virt_col)
+    let next_char_col = s:VirtcolToCharcol(winnr(), next_line, next_virt_col)
     let next_char = s:GetCharAtLineCol(next_line, next_char_col)
     if next_char == '+'
         let next_fill_char = '+'
