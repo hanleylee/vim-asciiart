@@ -7,7 +7,7 @@
 if has("python3")
     let g:Asciiart_Py = "py3 "
     let g:Asciiart_Pyeval = function("py3eval")
-    echom g:Asciiart_Pyeval
+    " echom g:Asciiart_Pyeval
 else
     echoerr 'Error: has("python3") == 0'
     finish
