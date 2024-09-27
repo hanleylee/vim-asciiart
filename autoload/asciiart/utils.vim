@@ -34,3 +34,31 @@ function! asciiart#utils#FindNearestChar(str, index, target, direction)
     return -1
 endfunction
 
+function! asciiart#utils#EnsureLineLongEnough(line_num, virt_col)
+    let end_col = virtcol([a:line_num, '$'])
+
+    " 确保列存在, 否则就用空格填充
+    if a:virt_col >= end_col
+        let line_content = getline(a:line_num) . repeat(' ', a:virt_col - end_col + 10)
+        call setline(a:line_num, line_content)
+    endif
+endfunction
+
+function! asciiart#utils#SetCharAtLineCol(line_num, target_virt_col, char)
+    let l:line_content = getline(a:line_num)
+    let l:line_length = strchars(l:line_content)
+
+    call asciiart#utils#EnsureLineLongEnough(a:line_num, a:target_virt_col)
+
+    " 确保行存在
+    while line('$') < a:line_num
+        call append(line('$'), '')
+    endwhile
+
+    let l:char_col = hlvimlib#text#VirtcolToCharcol(winnr(), a:line_num, a:target_virt_col)
+
+    let l:before = strcharpart(l:line_content, 0, l:char_col - 1)
+    let l:after = strcharpart(l:line_content, l:char_col)
+    call setline(a:line_num, l:before . a:char . l:after)
+endfunction
+
