@@ -17,7 +17,7 @@ function! s:arrowChar(direct)
     endif
 endfunction
 
-function! s:isCross(cur_char, direct)
+function! s:shouldDrawCross(cur_char, direct)
     if a:direct == 'up' || a:direct == 'down'
         if a:cur_char == '-' || a:cur_char == '>' || a:cur_char == '<'
             return v:true
@@ -36,66 +36,65 @@ function! s:isCross(cur_char, direct)
 endfunction
 
 function asciiart#arrowmove(direct)
-    let cur_char_col = charcol('.')
-    let cur_virt_col = virtcol('.')
-    let cur_line_num = line('.')
-    let end_virt_col = virtcol('$')
+    let l:cur_char_col = charcol('.')
+    let l:cur_virt_col = virtcol('.')
+    let l:cur_line_num = line('.')
+    let l:end_virt_col = virtcol('$')
 
     " 确保列存在, 否则就用空格填充
-    if cur_virt_col >= end_virt_col
-        let cur_char = ' '
+    if l:cur_virt_col >= l:end_virt_col
+        let l:cur_char = ' '
     else
-        let cur_char = strcharpart(getline('.'), charcol('.') - 1, 1, 0)
+        let l:cur_char = hlvimlib#text#GetCharAtLineCol(line('.'), charcol('.'))
     endif
 
     " 设置当前位置的符号 {{{
-    if cur_char == '+'
-        let cur_replace_char = '+'
-    elseif s:isCross(cur_char, a:direct)
-        " echom 111
-        let cur_replace_char = '+'
+    if l:cur_char == '+'
+        let l:cur_replace_char = '+'
+    elseif s:shouldDrawCross(l:cur_char, a:direct)
+        let l:cur_replace_char = '+'
     else
-        let cur_replace_char = (a:direct == 'up' || a:direct == 'down') ? '|' : '-'
+        let l:cur_replace_char = (a:direct == 'up' || a:direct == 'down') ? '|' : '-'
     endif
-    call asciiart#utils#SetCharAtLineCol(cur_line_num, cur_virt_col, cur_replace_char)
+    call asciiart#utils#SetCharAtLineCol(l:cur_line_num, l:cur_virt_col, l:cur_replace_char)
     " }}}
 
     " 设置下一个位置的符号 {{{
     if a:direct == 'up'
-        let next_line_num = cur_line_num - 1
-        let next_virt_col = cur_virt_col
+        let l:next_line_num = l:cur_line_num - 1
+        let l:next_virt_col = l:cur_virt_col
     elseif a:direct == 'down'
-        let next_line_num = cur_line_num + 1
-        let next_virt_col = cur_virt_col
+        let l:next_line_num = l:cur_line_num + 1
+        let l:next_virt_col = l:cur_virt_col
     elseif a:direct == 'left'
-        let next_line_num = cur_line_num
-        let next_virt_col = cur_virt_col - 1
+        let l:next_line_num = l:cur_line_num
+        let l:next_virt_col = l:cur_virt_col - 1
     elseif a:direct == 'right'
-        let next_line_num = cur_line_num
-        let next_virt_col = cur_virt_col + 1
+        let l:next_line_num = l:cur_line_num
+        let l:next_virt_col = l:cur_virt_col + 1
     else
         echoerr 'direct error: ' . a:direct
     endif
 
-    call asciiart#utils#EnsureLineLongEnough(next_line_num, next_virt_col)
+    call asciiart#utils#EnsureColEnough(l:next_line_num, l:next_virt_col)
 
-    let next_char_col = hlvimlib#text#VirtcolToCharcol(winnr(), next_line_num, next_virt_col)
-    let next_char = hlvimlib#text#GetCharAtLineCol(next_line_num, next_char_col)
-    if next_char == '+'
-        let next_replace_char = '+'
-    elseif s:isCross(next_char, a:direct)
-        let next_replace_char = '+'
+    let l:next_char_col = hlvimlib#text#VirtcolToCharcol(winnr(), l:next_line_num, l:next_virt_col)
+    let l:next_char = hlvimlib#text#GetCharAtLineCol(l:next_line_num, l:next_char_col)
+    if l:next_char == '+'
+        let l:next_replace_char = '+'
+    elseif s:shouldDrawCross(l:next_char, a:direct)
+        let l:next_replace_char = '+'
     else
-        let next_replace_char = s:arrowChar(a:direct)
+        let l:next_replace_char = s:arrowChar(a:direct)
     endif
 
-    call asciiart#utils#SetCharAtLineCol(next_line_num, next_virt_col, next_replace_char)
+    call asciiart#utils#SetCharAtLineCol(l:next_line_num, l:next_virt_col, l:next_replace_char)
     " }}}
 
     " 设置光标位置
     " call setpos('.', [bufnr('%'), l:next_line, l:next_col])
-    let next_col = virtcol2col(winnr(), next_line_num, next_virt_col)
-    call cursor(next_line_num, next_col)
+    let l:next_byte_col = virtcol2col(winnr(), l:next_line_num, l:next_virt_col)
+    call cursor(l:next_line_num, l:next_byte_col)
     " redraw
 endfunction
 
@@ -105,40 +104,32 @@ function! asciiart#WrapBlockWithASCII()
     let l:end_line = max([line("'<"), line("'>")])
     let l:start_col = min([virtcol("'<"), virtcol("'>")])
     let l:end_col = max([virtcol("'<"), virtcol("'>")])
+    let l:wrap_width = l:end_col - l:start_col + 1
 
-    " 确保行存在
-    while line('$') < l:end_line
-        call append(line('$'), '')
-    endwhile
+    call asciiart#utils#EnsureLineEnough(l:end_line)
 
-    " 遍历每一行，包裹边缘
-    for lnum in range(l:start_line, l:end_line)
+    " 遍历每一行, 包裹边缘
+    for line_num in range(l:start_line, l:end_line)
         " 获取当前行的内容和长度
-        let l:line_content = getline(lnum)
+        let l:line_content = getline(line_num)
         let l:line_length = strchars(l:line_content)
 
-        " 确保列数足够，并填充空格
-        if l:start_col > l:line_length
-            let l:line_content .= repeat(' ', l:start_col - l:line_length - 1)
-        endif
-        if l:end_col > l:line_length
-            let l:line_content .= repeat(' ', l:end_col - l:line_length - 1)
-        endif
+        call asciiart#utils#EnsureColEnough(line_num, l:end_col)
 
         " 在起始和结束列插入 |
         let l:before = strpart(l:line_content, 0, l:start_col - 1)
         let l:after = strpart(l:line_content, l:end_col)
 
-        if lnum == l:start_line || lnum == l:end_line
-            let l:middle = repeat('-', l:end_col - l:start_col - 1)
+        if line_num == l:start_line || line_num == l:end_line
+            let l:middle = repeat('-', l:wrap_width - 2)
             let l:new_line = l:before . '+' . l:middle . '+' . l:after
         else
-            let l:middle = strpart(l:line_content, l:start_col, l:end_col - l:start_col - 1)
+            let l:middle = strpart(l:line_content, l:start_col, l:wrap_width - 2)
             let l:new_line = l:before . '|' . l:middle . '|' . l:after
         endif
 
         " 设置新行内容
-        call setline(lnum, l:new_line)
+        call setline(line_num, l:new_line)
     endfor
 
     call cursor(l:end_line, l:end_col)
@@ -146,94 +137,73 @@ function! asciiart#WrapBlockWithASCII()
     " redraw
 endfunction
 
-function! asciiart#lookupContainerBox()
-    let box = g:Asciiart_Pyeval('asciiart.lookupContainerBox()')
-    return box
-endfunction
-
-" corner_type: `topleft`, `topright`, `bottomleft`, `bottomright`
-" return: [line, column]
-function! asciiart#findcorner(corner_type)
-    let box = asciiart#lookupContainerBox()
+" get all corners => { `cornertype`: [`line`, `char_col`]}
+function! asciiart#container_box_all_corners()
+    let box = asciiart#bridge#lookupContainerBox()
     if len(box) != 4
         echoerr "can't find any match box"
         return []
     endif
-    " let box_origin = [box[0], box[1]]
     let box_line_start = box[0]
     let box_col_start = box[1]
     let box_width = box[2]
     let box_height = box[3]
 
-    if a:corner_type == 'topleft'
-        return [box_line_start, box_col_start]
-    elseif a:corner_type == 'bottomleft'
-        return [box_line_start + box_height - 1, box_col_start]
-    elseif a:corner_type == 'topright'
-        return [box_line_start, box_col_start + box_width - 1]
-    elseif a:corner_type == 'bottomright'
-        return [box_line_start + box_height - 1, box_col_start + box_width - 1]
-    else
-        echoerr 'wrong cornertype' . a:corner_type
+    return {
+                \ 'topleft': [box_line_start, box_col_start],
+                \ 'bottomleft': [box_line_start + box_height - 1, box_col_start],
+                \ 'topright': [box_line_start, box_col_start + box_width - 1],
+                \ 'bottomright': [box_line_start + box_height - 1, box_col_start + box_width - 1],
+                \ }
+endfunction
+
+" get all sides => { `sidetype`: `line` or `char_col`}
+function! asciiart#container_box_all_sides()
+    let box = asciiart#bridge#lookupContainerBox()
+    if len(box) != 4
+        echoerr "can't find any match box"
         return []
     endif
+    let box_line_start = box[0]
+    let box_col_start = box[1]
+    let box_width = box[2]
+    let box_height = box[3]
 
+    return {
+                \ 'start_line': box_line_start,
+                \ 'end_line': box_line_start + box_height - 1,
+                \ 'start_col': box_col_start,
+                \ 'end_col': box_col_start + box_width - 1,
+                \ }
 endfunction
 
 function! asciiart#boxObject(type) abort
-    " normal! $
-    " let start_row = searchpos('\s*```', 'bn')[0]
-    " let end_row = searchpos('\s*```', 'n')[0]
-    let topleft = asciiart#findcorner('topleft')
-    let bottomright = asciiart#findcorner('bottomright')
-    if len(topleft) == 0 || len(bottomright) == 0
-        echoerr "Corner not found!"
-        return
-    endif
+    let l:all_sides = asciiart#container_box_all_sides()
+    let l:inset_space = a:type ==# 'i' ? 1 : 0
+    let l:start_line = l:all_sides['start_line'] + l:inset_space
+    let l:end_line = l:all_sides['end_line'] - l:inset_space
+    let l:start_col = l:all_sides['start_col'] + l:inset_space
+    let l:end_col = l:all_sides['end_col'] - l:inset_space
 
-    let start_line = topleft[0]
-    let start_col = topleft[1]
-    let end_line = bottomright[0]
-    let end_col = bottomright[1]
-
-    " if bottomright[1] == -1
-
-    let buf_num = bufnr()
-    if a:type ==# 'i'
-        let start_line += 1
-        let start_col += 1
-        let end_line -= 1
-        let end_col -= 1
-    endif
-    " echo a:type start_row end_row
-
-    call setpos("'<", [buf_num, start_line, start_col, 0])
-    call setpos("'>", [buf_num, end_line, end_col, 0])
+    call setpos("'<", [bufnr(), l:start_line, l:start_col, 0])
+    call setpos("'>", [bufnr(), l:end_line, l:end_col, 0])
     execute "normal! `<\<C-v>`>"
 endfunction
 
 function! asciiart#boxclear(type)
-    let topleft = asciiart#findcorner('topleft')
-    let bottomright = asciiart#findcorner('bottomright')
+    let l:all_sides = asciiart#container_box_all_sides()
+    let l:inset_space = a:type ==# 'i' ? 1 : 0
+    let l:start_line = l:all_sides['start_line'] + l:inset_space
+    let l:end_line = l:all_sides['end_line'] - l:inset_space
+    let l:start_col = l:all_sides['start_col'] + l:inset_space
+    let l:end_col = l:all_sides['end_col'] - l:inset_space
+    let l:box_width = l:end_col - l:start_col + 1
 
-    let start_line = topleft[0]
-    let start_col = topleft[1]
-    let end_line = bottomright[0]
-    let end_col = bottomright[1]
-
-    " should extend box area
-    if a:type == 'a'
-        let start_line -= 1
-        let start_col -= 1
-        let end_line += 1
-        let end_col += 1
-    endif
-
-    for line in range(start_line+1, end_line-1)
-        let line_content = getline(line)
-        let l:before = strcharpart(line_content, 0, start_col)
-        let l:between = repeat(' ', end_col - start_col - 1)
-        let l:after = strcharpart(line_content, end_col - 1)
-        call setline(line, l:before . l:between . l:after)
+    for line_num in range(l:start_line, l:end_line)
+        let l:line_content = getline(line_num)
+        let l:before = strcharpart(l:line_content, 0, l:start_col - 1)
+        let l:between = repeat(' ', l:box_width)
+        let l:after = strcharpart(l:line_content, l:end_col)
+        call setline(line_num, l:before . l:between . l:after)
     endfor
 endfunction
