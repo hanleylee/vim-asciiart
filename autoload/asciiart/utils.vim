@@ -55,10 +55,10 @@ function! asciiart#utils#EnsureLineEnough(line_num)
 endfunction
 
 function! asciiart#utils#SetCharAtLineCol(line_num, target_virt_col, char)
+    call asciiart#utils#EnsureColEnough(a:line_num, a:target_virt_col)
+
     let l:line_content = getline(a:line_num)
     let l:line_length = strchars(l:line_content)
-
-    call asciiart#utils#EnsureColEnough(a:line_num, a:target_virt_col)
 
     " 确保行存在
     while line('$') < a:line_num
