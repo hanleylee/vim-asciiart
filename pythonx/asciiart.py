@@ -222,7 +222,7 @@ def lookupContainerBox() -> list:
     current_point = Point(x=current_cursor[1], y=current_cursor[0] - 1)
 
     target_y = current_point.y
-    while target_y > 0:
+    while target_y >= 0:
         target_point = Point(x=current_point.x, y=target_y)
         if target_point.underChar in boxCharacters:
             # print(target_point.y, target_point.x)
