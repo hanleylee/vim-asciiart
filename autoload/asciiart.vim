@@ -110,11 +110,11 @@ function! asciiart#WrapBlockWithASCII()
 
     " 遍历每一行, 包裹边缘
     for line_num in range(l:start_line, l:end_line)
+        call asciiart#utils#EnsureColEnough(line_num, l:end_col)
+
         " 获取当前行的内容和长度
         let l:line_content = getline(line_num)
         let l:line_length = strchars(l:line_content)
-
-        call asciiart#utils#EnsureColEnough(line_num, l:end_col)
 
         " 在起始和结束列插入 |
         let l:before = strpart(l:line_content, 0, l:start_col - 1)
